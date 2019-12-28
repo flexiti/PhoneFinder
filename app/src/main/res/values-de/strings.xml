@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Phone Finder</string>
+    <string name="notification_active_action_stop">Gefunden</string>
+    <string name="notification_active_text">hier clicken wenn du mich gefunden hast</string>
+    <string name="notification_active_title">jemand sucht mich…</string>
+    <string name="ui_label_mqtt_connection">Mit server verbunden</string>
+    <string name="ui_label_phone_id">Handyname</string>
+    <string name="ui_value_no">Nein</string>
+    <string name="ui_value_yes">Ja</string>
+    <string name="preference_title_phone_id">Handyname</string>
+    <string name="preference_title_mqtt_uri">MQTT Server</string>
+    <string name="title_activity_settings">Einstellungen</string>
+    <string name="notification_channel_active_description">Handy wird gerade gesucht</string>
+    <string name="notification_channel_active_name">Handy wird gesucht</string>
+    <string name="notification_channel_running_description">Dieses Handy kann gesucht werden</string>
+    <string name="notification_channel_running_name">Phone Finder service ist aktiv</string>
+    <string name="action_settings">Einstellungen</string>
+    <string name="notification_running_text">Dieses Handy kann gesucht werden</string>
+    <string name="notification_running_title">Phone Finder service ist aktiv</string>
+    <string name="preferences_header">MQTT Einstellungen</string>
+    <string name="preference_title_wlan_ssid">WLAN SSID</string>
+</resources>

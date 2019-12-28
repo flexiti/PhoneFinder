@@ -28,6 +28,11 @@
             app:title="@string/preference_title_phone_id"
             app:useSimpleSummaryProvider="true" />
 
+        <EditTextPreference
+            app:key="@string/preference_key_wlan_ssid"
+            app:title="@string/preference_title_wlan_ssid"
+            app:useSimpleSummaryProvider="true" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

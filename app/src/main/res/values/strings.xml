@@ -8,19 +8,25 @@
     <string name="preferences_header">MQTT settings</string>
 
     <string name="preference_title_mqtt_uri">MQTT Server</string>
-    <string name="preference_key_mqtt_uri">MqttServerUri</string>
-
+    <string name="preference_key_mqtt_uri" translatable="false">MqttServerUri</string>
     <string name="preference_title_phone_id">Phone ID</string>
-    <string name="preference_key_phone_id">PhoneId</string>
+    <string name="preference_key_phone_id" translatable="false">PhoneId</string>
+    <string name="preference_title_wlan_ssid">Home WLAN SSID</string>
+    <string name="preference_key_wlan_ssid" translatable="false">WlanSSID</string>
 
-    <string name="notification_channel_running_name">service running</string>
-    <string name="notification_channel_running_description">Phone Finder service is running</string>
-    <string name="notification_channel_active_name">service active</string>
-    <string name="notification_channel_active_description">Phone Finder service is active</string>
+    <string name="notification_channel_running_name">Phone Finder service is running</string>
+    <string name="notification_channel_running_description">You can now search this phone</string>
+    <string name="notification_channel_active_name">Phone is being searched</string>
+    <string name="notification_channel_active_description">Phone search has been started</string>
 
-    <string name="notification_running_title">service running</string>
-    <string name="notification_running_text">Phone Finder service is running</string>
-    <string name="notification_active_title">someone is looking for me</string>
-    <string name="notification_active_text">someone is looking for me</string>
+    <string name="notification_running_title">Phone Finder service is running</string>
+    <string name="notification_running_text">You can now search this phone</string>
+    <string name="notification_active_title">someone is looking for me…</string>
+    <string name="notification_active_text">click here if you found me</string>
     <string name="notification_active_action_stop">found you</string>
+
+    <string name="ui_label_phone_id">Phone ID</string>
+    <string name="ui_label_mqtt_connection">connected to server</string>
+    <string name="ui_value_yes">Yes</string>
+    <string name="ui_value_no">No</string>
 </resources>

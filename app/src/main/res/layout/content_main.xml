@@ -9,12 +9,42 @@
     tools:showIn="@layout/activity_main">
 
     <TextView
+        android:id="@+id/labelPhoneId"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
+        android:text="@string/ui_label_phone_id"
+        android:textSize="18sp"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="0.26"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/valuePhoneId"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="18sp"
+        app:layout_constraintBottom_toBottomOf="@+id/labelPhoneId"
+        app:layout_constraintStart_toStartOf="@+id/valueMqttServerConnection" />
+
+    <TextView
+        android:id="@+id/labelMqttServerConnection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/ui_label_mqtt_connection"
+        app:layout_constraintStart_toStartOf="@+id/labelPhoneId"
+        app:layout_constraintTop_toBottomOf="@+id/labelPhoneId" />
+
+    <TextView
+        android:id="@+id/valueMqttServerConnection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:text=""
+        app:layout_constraintBottom_toBottomOf="@+id/labelMqttServerConnection"
+        app:layout_constraintStart_toEndOf="@+id/labelMqttServerConnection" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
