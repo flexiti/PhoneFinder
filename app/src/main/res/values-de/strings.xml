@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Phone Finder</string>
     <string name="notification_active_action_stop">Gefunden</string>
-    <string name="notification_active_text">hier clicken wenn du mich gefunden hast</string>
+    <string name="notification_active_text">hier drücken wenn du mich gefunden hast</string>
     <string name="notification_active_title">jemand sucht mich…</string>
     <string name="ui_label_mqtt_connection">Mit server verbunden</string>
     <string name="ui_label_phone_id">Handyname</string>

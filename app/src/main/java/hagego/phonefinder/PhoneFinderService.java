@@ -127,17 +127,17 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
                     MqttConnectOptions connectOptions = new MqttConnectOptions();
                     connectOptions.setAutomaticReconnect(true);
                     connectOptions.setCleanSession(true);
+                    connectOptions.setKeepAliveInterval(120);
 
                     mqttClient.setCallback(this);
                     try {
                         mqttClient.connect(connectOptions);
+                        Log.i(TAG, "connection request to MQTT server was sent successfully");
                     } catch (MqttException e) {
-                        Log.e(TAG, "connection to MQTT server failed, client ID="+clientID+": ",e);
+                        Log.e(TAG, "connection request to MQTT server failed, client ID="+clientID+": ",e);
                     } finally {
                         sendStatusBroadcast();
                     }
-
-                    Log.i(TAG, "connection request to MQTT server successful");
                 }
             }
         }
