@@ -39,7 +39,7 @@ public class PhoneFinderReceiver extends BroadcastReceiver {
                 NetworkInfo networkInfo=(NetworkInfo)p;
                 if(networkInfo.getType()==ConnectivityManager.TYPE_WIFI) {
                     NetworkInfo.DetailedState detailedState = networkInfo.getDetailedState();
-                    Log.d(TAG,"received WIFI status changed message, detailed state="+detailedState);
+                    Log.d(TAG,"received WIFI status changed message, detailed state="+detailedState+" extra info:"+networkInfo.getExtraInfo());
 
                     if (detailedState == NetworkInfo.DetailedState.DISCONNECTED) {
                         Log.d(TAG, "WIFI is disconnected");
@@ -61,8 +61,14 @@ public class PhoneFinderReceiver extends BroadcastReceiver {
                             if (phoneFinderService != null) {
                                 //phoneFinderService.connect();
 
-                                // schedule a timer to stop ringing in case no-one stops manually
-                                connectTimer.purge();
+                                // schedule a timer
+                                try {
+                                    connectTimer.cancel();
+                                    connectTimer.purge();
+                                }
+                                catch(IllegalStateException e) {
+                                    // nothing to do - gets thrown if time was already cancelled
+                                }
 
                                 TimerTask timerTaskObj = new TimerTask() {
                                     public void run() {
@@ -70,6 +76,8 @@ public class PhoneFinderReceiver extends BroadcastReceiver {
                                         phoneFinderService.connect();
                                     }
                                 };
+
+                                connectTimer = new Timer();
                                 connectTimer.schedule(timerTaskObj, 5000);
                             }
                         }

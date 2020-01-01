@@ -1,9 +1,12 @@
 package hagego.phonefinder;
 
+import android.app.AlarmManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
@@ -26,6 +29,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
+import java.util.Calendar;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -123,11 +127,11 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
             else {
                 if (phoneId!=null) {
                     String clientID = "PhoneFinder"+phoneId;
-                    Log.d(TAG, "connecting to MQTT server, client ID=" + clientID);
+                    Log.d(TAG, "connecting to MQTT server, client ID=" + clientID+" keepalive="+MQTT_KEEPALIVE);
                     MqttConnectOptions connectOptions = new MqttConnectOptions();
                     connectOptions.setAutomaticReconnect(true);
                     connectOptions.setCleanSession(true);
-                    connectOptions.setKeepAliveInterval(120);
+                    connectOptions.setKeepAliveInterval(MQTT_KEEPALIVE);
 
                     mqttClient.setCallback(this);
                     try {
@@ -172,6 +176,10 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         Log.d(TAG, "onCreate called");
         super.onCreate();
 
+        // turn on logging of PAHO client library
+        // AndroidLoggingHandler.reset(new AndroidLoggingHandler());
+        // java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.FINEST);
+
         // create an Notification channel for the mandatory foreground service notification
         NotificationChannel channelRunning = new NotificationChannel(NOTIFICATION_CHANNEL_RUNNING,
                 getString(R.string.notification_channel_running_name),
@@ -189,6 +197,9 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         notificationManager.createNotificationChannel(channelActive);
 
+        // create receiver for dummy wake-up messages
+        registerReceiver(new MqttPingWakeupReceiver(),new IntentFilter(ACTION_WAKEUP_PHONE));
+
         // create intent to start main activity by the notification
         Intent intent = new Intent(this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -196,7 +207,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         // now create the mandatory notification for this foreground service
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_RUNNING)
-                .setSmallIcon(R.drawable.ic_stat_new_message)
+                .setSmallIcon(R.mipmap.icons8_search_icon)
                 .setContentTitle(getString(R.string.notification_running_title))
                 .setContentText(getString(R.string.notification_running_text))
                 .setContentIntent(pendingIntent)
@@ -229,7 +240,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
             // register a receiver for WIFI changes
             IntentFilter intentFilter = new IntentFilter();
             intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-            receiver = new PhoneFinderReceiver();
+            PhoneFinderReceiver receiver = new PhoneFinderReceiver();
             receiver.setService(this);
             registerReceiver(receiver, intentFilter);
 
@@ -272,7 +283,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
             // create notification
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ACTIVE)
-                    .setSmallIcon(R.drawable.ic_stat_new_message)
+                    .setSmallIcon(R.mipmap.icons8_search_icon)
                     .setContentTitle(getString(R.string.notification_active_title))
                     .setContentText(getString(R.string.notification_active_text))
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -315,21 +326,27 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
                 Log.d(TAG,"subscribing for topic "+topic);
                 try {
                     mqttClient.subscribe(topic, 0, this);
-                    Log.d(TAG,"subscription of topic "+topic+ " successfull.");
+                    Log.d(TAG,"subscription of topic "+topic+ " successful.");
                 } catch (MqttException e) {
-                    Log.e(TAG, "MQTT subsribe failed: ", e);
+                    Log.e(TAG, "MQTT subscribe failed: ", e);
                 }
             }
         }
 
         sendStatusBroadcast();
+
+        // trigger wakeup of the phone synchronized with the MQTT keepalive pings
+        Log.d(TAG,"scheduling next phone wake-up");
+        scheduleNextWakeup();
     }
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
-
     }
 
+    /**
+     * starts the ringtone
+     */
     private synchronized void startRinging() {
         Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
         if (alarmUri == null) {
@@ -361,6 +378,9 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         }
     }
 
+    /**
+     * stops the ringtone again
+     */
     private synchronized void stopRinging() {
         if(ringtone!=null) {
             ringtone.stop();
@@ -379,27 +399,70 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         sendBroadcast(intent);
     }
 
+    /**
+     * schedules a wake-up of the phone by sending a dummy action to the MqttPingWakeupReceiver
+     * in the same interval as the MQTT keepalive
+     */
+    private void scheduleNextWakeup()
+    {
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0,
+                new Intent(ACTION_WAKEUP_PHONE),
+                PendingIntent.FLAG_UPDATE_CURRENT);
+
+        // schedule the next wakeup in the same interval that is used for the MQTT ping
+        Calendar wakeUpTime = Calendar.getInstance();
+        wakeUpTime.add(Calendar.SECOND, MQTT_KEEPALIVE);
+
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        alarmManager.set(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(),pendingIntent);
+    }
+
+    /**
+     * This class is used to implement a receiver that is triggered periodically in the same intervals
+     * like the MQTT keepalive messages to wake up the device
+     */
+    public class MqttPingWakeupReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG,"MqttPingWakeupReceiver triggered");
+            // do nothing more but schedule next wake-up if we are connected
+
+            if(mqttClient!=null && mqttClient.isConnected()) {
+                Log.d(TAG,"MQTT client is connected, scheduling next wakeup");
+                scheduleNextWakeup();
+            }
+            else {
+                Log.d(TAG,"MQTT client is not connected - no wakeup scheduled");
+            }
+        }
+    }
+
     //
     // member data
     //
     private static final String TAG = PhoneFinderService.class.getSimpleName();   // logging tag
 
-    private static final String MQTT_TOPIC_BASE          = "phonefinder/";
-    private static final String MQTT_TOPIC_VALUE_TRIGGER = "trigger";
-    private static final String MQTT_TOPIC_VALUE_RINGING = "ringing";
-    private static final String MQTT_TOPIC_VALUE_FOUND   = "found";
+    // MQTT topics
+    private static final String MQTT_TOPIC_BASE          = "phonefinder/";       // base MQTT topic name, phone ID gets added
+    private static final String MQTT_TOPIC_VALUE_TRIGGER = "trigger";            // sent by other client, when received, phone starts ringing
+    private static final String MQTT_TOPIC_VALUE_RINGING = "ringing";            // sent by this app, confirms phone is ringing
+    private static final String MQTT_TOPIC_VALUE_FOUND   = "found";              // sent by this app, confirmed phone was found
 
     private static final String NOTIFICATION_CHANNEL_RUNNING = "RUNNING";         // notification channel ID for required notification as foreground service
     private static final String NOTIFICATION_CHANNEL_ACTIVE  = "ACTIVE";          // notification channel ID for real notification
 
-    static final String ACTION_STOP_RINGING         = "hagego.phonefinder.stop_ringing";
-    static final String ACTION_UPDATE_STATUS        = "hagego.phonefinder.update_status";
-    static final int    STOP_RINGING_TIMER_DEFFAULT = 30;                                 // default timeout in seconds to stop ringing
+    // actions used in Intents
+    static final String ACTION_STOP_RINGING         = "hagego.phonefinder.stop_ringing";   // used in notification, stops ringing
+    static final String ACTION_UPDATE_STATUS        = "hagego.phonefinder.update_status";  // broadcast of status
+    static final String ACTION_WAKEUP_PHONE         = "hagego.phonefinder.wakeup_phone";   // dummy action to wake up phone in time for MQTT ping messages
+
+    static final int    STOP_RINGING_TIMER_DEFFAULT = 60;                                 // default timeout in seconds to stop ringing
+    static final int    MQTT_KEEPALIVE              = 600;                                // MQTT timeout interval
 
     static final String STATUS_MQTT_CONNECTED       = "hagego.phonefinder.mqtt_connected";
 
-    private PhoneFinderReceiver receiver;
     private MqttAsyncClient     mqttClient  = null;
-    private Ringtone            ringtone     = null;
-    private String              phoneId;
+    private Ringtone            ringtone    = null;
+    private String              phoneId     = null;
 }

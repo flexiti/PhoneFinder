@@ -5,7 +5,7 @@
     <string name="title_activity_settings">Settings</string>
 
     <!-- Preferences -->
-    <string name="preferences_header">MQTT settings</string>
+    <string name="preferences_header">icons provided by icons8.de</string>
 
     <string name="preference_title_mqtt_uri">MQTT Server</string>
     <string name="preference_key_mqtt_uri" translatable="false">MqttServerUri</string>

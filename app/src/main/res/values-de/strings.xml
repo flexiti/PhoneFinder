@@ -18,6 +18,6 @@
     <string name="action_settings">Einstellungen</string>
     <string name="notification_running_text">Dieses Handy kann gesucht werden</string>
     <string name="notification_running_title">Phone Finder service ist aktiv</string>
-    <string name="preferences_header">MQTT Einstellungen</string>
+    <string name="preferences_header">icons von icons8.de</string>
     <string name="preference_title_wlan_ssid">WLAN SSID</string>
 </resources>
