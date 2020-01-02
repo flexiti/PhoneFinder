@@ -207,7 +207,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         // now create the mandatory notification for this foreground service
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_RUNNING)
-                .setSmallIcon(R.mipmap.icons8_search_icon)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(getString(R.string.notification_running_title))
                 .setContentText(getString(R.string.notification_running_text))
                 .setContentIntent(pendingIntent)
@@ -283,7 +283,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
             // create notification
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ACTIVE)
-                    .setSmallIcon(R.mipmap.icons8_search_icon)
+                    .setSmallIcon(R.mipmap.ic_launcher)
                     .setContentTitle(getString(R.string.notification_active_title))
                     .setContentText(getString(R.string.notification_active_text))
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
