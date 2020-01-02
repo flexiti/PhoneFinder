@@ -1,12 +1,9 @@
 package hagego.phonefinder;
 
-import android.app.AlarmManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
@@ -29,7 +26,6 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
-import java.util.Calendar;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -97,7 +93,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
                 String clientID = "PhoneFinder"+phoneId;
 
                 try {
-                    return new MqttAsyncClient(uri, clientID, new MemoryPersistence());
+                    return new MqttAsyncClient(uri, clientID, new MemoryPersistence(),new MqttAndroidPingSender(this));
                 } catch (MqttException e) {
                     Log.e(TAG,"Exception during creation of Mqtt client: ",e);
                 }
@@ -196,9 +192,6 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         channelActive.setDescription(getString(R.string.notification_channel_active_description));
 
         notificationManager.createNotificationChannel(channelActive);
-
-        // create receiver for dummy wake-up messages
-        registerReceiver(new MqttPingWakeupReceiver(),new IntentFilter(ACTION_WAKEUP_PHONE));
 
         // create intent to start main activity by the notification
         Intent intent = new Intent(this, MainActivity.class);
@@ -334,10 +327,6 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         }
 
         sendStatusBroadcast();
-
-        // trigger wakeup of the phone synchronized with the MQTT keepalive pings
-        Log.d(TAG,"scheduling next phone wake-up");
-        scheduleNextWakeup();
     }
 
     @Override
@@ -399,44 +388,6 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         sendBroadcast(intent);
     }
 
-    /**
-     * schedules a wake-up of the phone by sending a dummy action to the MqttPingWakeupReceiver
-     * in the same interval as the MQTT keepalive
-     */
-    private void scheduleNextWakeup()
-    {
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0,
-                new Intent(ACTION_WAKEUP_PHONE),
-                PendingIntent.FLAG_UPDATE_CURRENT);
-
-        // schedule the next wakeup in the same interval that is used for the MQTT ping
-        Calendar wakeUpTime = Calendar.getInstance();
-        wakeUpTime.add(Calendar.SECOND, MQTT_KEEPALIVE);
-
-        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        alarmManager.set(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(),pendingIntent);
-    }
-
-    /**
-     * This class is used to implement a receiver that is triggered periodically in the same intervals
-     * like the MQTT keepalive messages to wake up the device
-     */
-    public class MqttPingWakeupReceiver extends BroadcastReceiver {
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(TAG,"MqttPingWakeupReceiver triggered");
-            // do nothing more but schedule next wake-up if we are connected
-
-            if(mqttClient!=null && mqttClient.isConnected()) {
-                Log.d(TAG,"MQTT client is connected, scheduling next wakeup");
-                scheduleNextWakeup();
-            }
-            else {
-                Log.d(TAG,"MQTT client is not connected - no wakeup scheduled");
-            }
-        }
-    }
 
     //
     // member data
@@ -455,7 +406,6 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
     // actions used in Intents
     static final String ACTION_STOP_RINGING         = "hagego.phonefinder.stop_ringing";   // used in notification, stops ringing
     static final String ACTION_UPDATE_STATUS        = "hagego.phonefinder.update_status";  // broadcast of status
-    static final String ACTION_WAKEUP_PHONE         = "hagego.phonefinder.wakeup_phone";   // dummy action to wake up phone in time for MQTT ping messages
 
     static final int    STOP_RINGING_TIMER_DEFFAULT = 60;                                 // default timeout in seconds to stop ringing
     static final int    MQTT_KEEPALIVE              = 600;                                // MQTT timeout interval
