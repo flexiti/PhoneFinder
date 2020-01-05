@@ -28,6 +28,7 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.logging.Level;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -172,9 +173,16 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         Log.d(TAG, "onCreate called");
         super.onCreate();
 
+        // register a receiver for WIFI changes
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+        PhoneFinderReceiver receiver = new PhoneFinderReceiver();
+        registerReceiver(receiver, intentFilter);
+
+
         // turn on logging of PAHO client library
-        // AndroidLoggingHandler.reset(new AndroidLoggingHandler());
-        // java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.FINEST);
+        //AndroidLoggingHandler.reset(new AndroidLoggingHandler());
+        //java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.FINEST);
 
         // create an Notification channel for the mandatory foreground service notification
         NotificationChannel channelRunning = new NotificationChannel(NOTIFICATION_CHANNEL_RUNNING,
@@ -226,28 +234,14 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
             }
         }
 
-        if(intent.getAction()!=null && intent.getAction().equals(Intent.ACTION_RUN)) {
-            Log.i(TAG, "onStartCommand(): received RUN command");
+        if(intent.getAction()!=null && intent.getAction().equals(ACTION_CONNECT)) {
+            Log.e(TAG,"received connect action");
             connect();
+        }
 
-            // register a receiver for WIFI changes
-            IntentFilter intentFilter = new IntentFilter();
-            intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-            PhoneFinderReceiver receiver = new PhoneFinderReceiver();
-            receiver.setService(this);
-            registerReceiver(receiver, intentFilter);
-
-            // get Home WLAN SSID from preferences
-            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-            String keyWlanSSID  = getString(R.string.preference_key_wlan_ssid);
-            if (preferences.contains(keyWlanSSID) ) {
-                String wlanSSID = preferences.getString(keyWlanSSID, null);
-                Log.d(TAG,"found WLAN SSID in preferences, value="+wlanSSID);
-                receiver.setWlanSSID(wlanSSID);
-            }
-            else {
-                Log.d(TAG,"No WLAN SSID found in preferences");
-            }
+        if(intent.getAction()!=null && intent.getAction().equals(ACTION_DISCONNECT)) {
+            Log.e(TAG,"received disconnect action");
+            disconnect();
         }
 
         return START_STICKY;
@@ -406,9 +400,11 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
     // actions used in Intents
     static final String ACTION_STOP_RINGING         = "hagego.phonefinder.stop_ringing";   // used in notification, stops ringing
     static final String ACTION_UPDATE_STATUS        = "hagego.phonefinder.update_status";  // broadcast of status
+    static final String ACTION_CONNECT              = "hagego.phonefinder.connect";        // connected to home network
+    static final String ACTION_DISCONNECT           = "hagego.phonefinder.disconnect";     // disconnected from home network
 
     static final int    STOP_RINGING_TIMER_DEFFAULT = 60;                                 // default timeout in seconds to stop ringing
-    static final int    MQTT_KEEPALIVE              = 600;                                // MQTT timeout interval
+    static final int    MQTT_KEEPALIVE              = 900;                                // MQTT timeout interval
 
     static final String STATUS_MQTT_CONNECTED       = "hagego.phonefinder.mqtt_connected";
 

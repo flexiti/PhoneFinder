@@ -53,18 +53,17 @@ public class MqttAndroidPingSender implements MqttPingSender {
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
         // schedule first ping
-        int delayInMilliSeconds = Math.toIntExact(comms.getKeepAlive());
-        if(delayInMilliSeconds>1000) {
-            Log.d(TAG, "scheduling next ping in " + delayInMilliSeconds + " ms");
-            Calendar wakeUpTime = Calendar.getInstance();
-            wakeUpTime.add(Calendar.MILLISECOND, delayInMilliSeconds);
+        int delayInMilliseconds = Math.toIntExact(comms.getKeepAlive());
+        if(delayInMilliseconds<60000) {
+            delayInMilliseconds = 60000;
+        }
 
-            // schedule next pin in a window that allows a max. of 50% extra time, based on MQTT standard/recommendation
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(), (long) (delayInMilliSeconds*0.5),pendingIntent);
-        }
-        else {
-            Log.d(TAG,"delay is zero - ignoring");
-        }
+        Log.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
+        Calendar wakeUpTime = Calendar.getInstance();
+        wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
+
+        // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
+        alarmManager.setWindow(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds*0.4),pendingIntent);
     }
 
     public void stop() {
@@ -79,23 +78,22 @@ public class MqttAndroidPingSender implements MqttPingSender {
     }
 
     public void schedule(long delayInMilliseconds) {
-        Log.d(TAG,"scheduled called, delay in seconds="+delayInMilliseconds/1000);
+        Log.d(TAG,"schedule called, delay in seconds="+delayInMilliseconds/1000);
 
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0,
                 new Intent(ACTION_WAKEUP_PHONE),
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
-        if(delayInMilliseconds>1000) {
-            Log.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
-            Calendar wakeUpTime = Calendar.getInstance();
-            wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
+        if(delayInMilliseconds<60000) {
+            delayInMilliseconds = 60000;
+        }
 
-            // schedule next pin in a window that allows a max. of 50% extra time, based on MQTT standard/recommendation
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds*0.5),pendingIntent);
-        }
-        else {
-            Log.d(TAG,"delay is zero - ignoring");
-        }
+        Log.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
+        Calendar wakeUpTime = Calendar.getInstance();
+        wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
+
+        // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
+        alarmManager.setWindow(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds*0.4),pendingIntent);
     }
 
     private class MqttPingWakeupReceiver extends BroadcastReceiver {
