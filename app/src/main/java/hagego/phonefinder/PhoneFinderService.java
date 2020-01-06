@@ -4,18 +4,25 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
+import android.net.ConnectivityManager;
+import android.net.LinkProperties;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.util.Log;
+
+import com.hypertrack.hyperlog.HyperLog;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
@@ -28,157 +35,55 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.logging.Level;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 import static android.app.Notification.EXTRA_NOTIFICATION_ID;
+import static android.content.Intent.ACTION_RUN;
 
 public class PhoneFinderService extends Service implements MqttCallbackExtended, IMqttMessageListener {
     public PhoneFinderService() {
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
-        Log.d(TAG,"onBind() called");
-
-        sendStatusBroadcast();
-
-        return new Binder();
-    }
-
-    @Override
-    public boolean onUnbind(Intent intent) {
-        Log.d(TAG,"onUnbind() called");
-
-        return true;
-    }
-
-    @Override
-    public void onRebind(Intent intent) {
-        Log.d(TAG,"onRebind() called");
-
-        sendStatusBroadcast();
-    }
-
-    @Override
-    public void onDestroy() {
-        Log.d(TAG,"onDestroy() called");
-
-        // disconnect MQTT
-        disconnect();
-        mqttClient = null;
-    }
-
-
-    /**
-     * creates a new MQTT client object
-     * @return new MqttAsyncClient object
-     */
-    MqttAsyncClient createMqttClient() {
-        Log.d(TAG,"createMqttClient() called");
-
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        String keyServer  = getString(R.string.preference_key_mqtt_uri);
-        String keyPhoneID = getString(R.string.preference_key_phone_id);
-        if (preferences.contains(keyServer) && preferences.contains(keyPhoneID)) {
-            Log.d(TAG, "preferences found in createMqttClient()");
-            String server = preferences.getString(keyServer, null);
-            phoneId = preferences.getString(keyPhoneID, null);
-            Log.d(TAG, "MQTT server: " + server + " Phone ID:" + phoneId);
-
-            if (server != null && phoneId != null) {
-                // create client object
-                String uri = "tcp://"+server;
-                String clientID = "PhoneFinder"+phoneId;
-
-                try {
-                    return new MqttAsyncClient(uri, clientID, new MemoryPersistence(),new MqttAndroidPingSender(this));
-                } catch (MqttException e) {
-                    Log.e(TAG,"Exception during creation of Mqtt client: ",e);
-                }
-            } else {
-                Log.w(TAG, "invalid preferences in createMqttClient(). MQTT server=" + server + " Phone ID=" + phoneId);
-            }
-        } else {
-            Log.w(TAG, "no preferences found in createMqttClient()");
-        }
-
-        return null;
-    }
-
-    /**
-     * connects to the MQTT server
-     */
-    void connect() {
-        Log.d(TAG,"connect() called");
-        if(mqttClient == null) {
-            Log.d(TAG, "MQTT client object is null in connect()");
-            mqttClient = createMqttClient();
-        }
-        if(mqttClient!=null) {
-            if(mqttClient.isConnected()) {
-                Log.d(TAG,"already connected");
-            }
-            else {
-                if (phoneId!=null) {
-                    String clientID = "PhoneFinder"+phoneId;
-                    Log.d(TAG, "connecting to MQTT server, client ID=" + clientID+" keepalive="+MQTT_KEEPALIVE);
-                    MqttConnectOptions connectOptions = new MqttConnectOptions();
-                    connectOptions.setAutomaticReconnect(true);
-                    connectOptions.setCleanSession(true);
-                    connectOptions.setKeepAliveInterval(MQTT_KEEPALIVE);
-
-                    mqttClient.setCallback(this);
-                    try {
-                        mqttClient.connect(connectOptions);
-                        Log.i(TAG, "connection request to MQTT server was sent successfully");
-                    } catch (MqttException e) {
-                        Log.e(TAG, "connection request to MQTT server failed, client ID="+clientID+": ",e);
-                    } finally {
-                        sendStatusBroadcast();
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * disconnects from the MQTT server
-     */
-    void disconnect() {
-        Log.d(TAG,"disconnect() called");
-
-        try {
-            if(mqttClient!=null) {
-                if(mqttClient.isConnected()) {
-                    mqttClient.disconnect();
-                    Log.d(TAG,"MQTT client got disconnected");
-                }
-                else {
-                    Log.d(TAG,"MQTT client is already disconnected");
-                }
-            }
-        } catch (MqttException e) {
-            Log.e(TAG,"MQTT Server disconnect failed: ",e);
-        }
-        finally {
-            sendStatusBroadcast();
-        }
-    }
-
-    @Override
     public void onCreate() {
-        Log.d(TAG, "onCreate called");
         super.onCreate();
 
-        // register a receiver for WIFI changes
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-        PhoneFinderReceiver receiver = new PhoneFinderReceiver();
-        registerReceiver(receiver, intentFilter);
+        // initialize Hyperlog remote logging
+        HyperLog.initialize(this);
+        HyperLog.setLogLevel(BuildConfig.DEBUG ? Log.VERBOSE : Log.ERROR);
 
+        HyperLog.d(TAG, "onCreate called");
+        HyperLog.d(TAG,"build type was: "+BuildConfig.BUILD_TYPE);
+
+        // callback for WIFI connect state changes
+        ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                HyperLog.d(TAG, "network callback: onAvailable called");
+
+                if(isInHomeNetwork()) {
+                    HyperLog.d(TAG, "home network detected, calling connect()");
+                    connectionCounter = 2;
+                    connect();
+                }
+            }
+
+            @Override
+            public void onLost(Network network) {
+                HyperLog.d(TAG, "network callback: onLost called. Disconnecting");
+
+                disconnect();
+            }
+        };
+
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build();
+        connectivityManager.registerNetworkCallback(request, networkCallback);
 
         // turn on logging of PAHO client library
         //AndroidLoggingHandler.reset(new AndroidLoggingHandler());
@@ -217,10 +122,171 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         startForeground(1,builder.build());
     }
 
+    @Override
+    public IBinder onBind(Intent intent) {
+        HyperLog.d(TAG,"onBind() called");
+
+        sendStatusBroadcast();
+
+        return new Binder();
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        HyperLog.d(TAG,"onUnbind() called");
+
+        return true;
+    }
+
+    @Override
+    public void onRebind(Intent intent) {
+        HyperLog.d(TAG,"onRebind() called");
+
+        sendStatusBroadcast();
+    }
+
+    @Override
+    public void onDestroy() {
+        HyperLog.d(TAG,"onDestroy() called");
+
+        // disconnect MQTT
+        disconnect();
+        mqttClient = null;
+    }
+
+
+    /**
+     * creates a new MQTT client object
+     * @return new MqttAsyncClient object
+     */
+    MqttAsyncClient createMqttClient() {
+        HyperLog.d(TAG,"createMqttClient() called");
+
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        String keyServer  = getString(R.string.preference_key_mqtt_uri);
+        String keyPhoneID = getString(R.string.preference_key_phone_id);
+        if (preferences.contains(keyServer) && preferences.contains(keyPhoneID)) {
+            HyperLog.d(TAG, "preferences found in createMqttClient()");
+            String server = preferences.getString(keyServer, null);
+            phoneId = preferences.getString(keyPhoneID, null);
+            HyperLog.d(TAG, "MQTT server: " + server + " Phone ID:" + phoneId);
+
+            if (server != null && phoneId != null) {
+                // create client object
+                String uri = "tcp://"+server;
+                String clientID = "PhoneFinder"+phoneId;
+
+                try {
+                    return new MqttAsyncClient(uri, clientID, new MemoryPersistence(),new MqttAndroidPingSender(this));
+                } catch (MqttException e) {
+                    Log.e(TAG,"Exception during creation of Mqtt client: ",e);
+                }
+            } else {
+                Log.w(TAG, "invalid preferences in createMqttClient(). MQTT server=" + server + " Phone ID=" + phoneId);
+            }
+        } else {
+            Log.w(TAG, "no preferences found in createMqttClient()");
+        }
+
+        return null;
+    }
+
+    /**
+     * connects to the MQTT server
+     */
+    void connect() {
+        HyperLog.d(TAG,"connect() called");
+        connectionCounter--;
+
+        if(mqttClient == null) {
+            HyperLog.d(TAG, "MQTT client object is null in connect()");
+            mqttClient = createMqttClient();
+        }
+        if(mqttClient!=null) {
+            if(mqttClient.isConnected()) {
+                HyperLog.d(TAG,"already connected");
+            }
+            else {
+                if (phoneId!=null) {
+                    String clientID = "PhoneFinder"+phoneId;
+                    HyperLog.d(TAG, "connecting to MQTT server, client ID=" + clientID+" keepalive="+MQTT_KEEPALIVE);
+                    MqttConnectOptions connectOptions = new MqttConnectOptions();
+                    connectOptions.setAutomaticReconnect(true);
+                    connectOptions.setCleanSession(true);
+                    connectOptions.setKeepAliveInterval(MQTT_KEEPALIVE);
+
+                    mqttClient.setCallback(this);
+                    try {
+                        mqttClient.connect(connectOptions);
+                        Log.d(TAG, "connection request to MQTT server was sent successfully");
+
+                        Timer timerObj = new Timer();
+                        TimerTask timerTaskObj = new TimerTask() {
+                            public void run() {
+                                HyperLog.d(TAG,"checking connection request");
+                                if(!mqttClient.isConnected()) {
+                                    HyperLog.d(TAG,"still not connected, counter="+connectionCounter);
+                                    if(connectionCounter>0) {
+                                        HyperLog.d(TAG,"retrying...");
+                                        connect();
+                                    }
+                                }
+                                else {
+                                    HyperLog.d(TAG,"connection OK.");
+                                }
+                            }
+                        };
+                        timerObj.schedule(timerTaskObj, 10000);
+                    } catch (MqttException e) {
+                        Log.e(TAG, "connection request to MQTT server failed, client ID="+clientID+": ",e);
+                        Log.d(TAG, "connection request to MQTT server failed, client ID="+clientID+": ",e);
+                    } finally {
+                        sendStatusBroadcast();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * disconnects from the MQTT server
+     */
+    void disconnect() {
+        HyperLog.d(TAG,"disconnect() called");
+
+        try {
+            if(mqttClient!=null) {
+                if(mqttClient.isConnected()) {
+                    mqttClient.disconnect();
+                    HyperLog.d(TAG,"MQTT client got disconnected");
+                }
+                else {
+                    HyperLog.d(TAG,"MQTT client is already disconnected");
+                }
+            }
+        } catch (MqttException e) {
+            Log.e(TAG,"MQTT Server disconnect failed: ",e);
+        }
+        finally {
+            sendStatusBroadcast();
+        }
+    }
+
 
     @Override
     public int onStartCommand(Intent intent,int flags,int startId) {
-        Log.d(TAG, "onStartCommand() called. Action="+intent.getAction());
+        HyperLog.d(TAG, "onStartCommand() called. Action="+intent.getAction());
+
+        if(intent.getAction()!=null && intent.getAction().equals(ACTION_RUN)) {
+            Log.i(TAG, "onStartCommand(): received RUN command");
+            /*
+            if(isInHomeNetwork()) {
+                HyperLog.d(TAG, "home network detected, calling connect()");
+                connect();
+            }
+
+             */
+        }
 
         if(intent.getAction()!=null && intent.getAction().equals(ACTION_STOP_RINGING)) {
             Log.i(TAG, "onStartCommand(): received stop ringing command");
@@ -234,22 +300,12 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
             }
         }
 
-        if(intent.getAction()!=null && intent.getAction().equals(ACTION_CONNECT)) {
-            Log.e(TAG,"received connect action");
-            connect();
-        }
-
-        if(intent.getAction()!=null && intent.getAction().equals(ACTION_DISCONNECT)) {
-            Log.e(TAG,"received disconnect action");
-            disconnect();
-        }
-
         return START_STICKY;
     }
 
     @Override
     public void connectionLost(Throwable cause) {
-        Log.d(TAG,"MQTT connection lost: "+cause.getMessage(),cause);
+        HyperLog.d(TAG,"MQTT connection lost: "+cause.getMessage(),cause);
 
         sendStatusBroadcast();
     }
@@ -257,10 +313,10 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
     @Override
     public void messageArrived(String topic, MqttMessage message) {
         String data = message.toString();
-        Log.d(TAG,"MQTT message arrived, topic="+topic+" content="+data);
+        HyperLog.d(TAG,"MQTT message arrived, topic="+topic+" content="+data);
 
         if(data.equals(MQTT_TOPIC_VALUE_TRIGGER)) {
-            Log.d(TAG,"received MQTT command: trigger");
+            HyperLog.d(TAG,"received MQTT command: trigger");
 
             Intent stopIntent = new Intent(this, PhoneFinderService.class);
             stopIntent.setAction(ACTION_STOP_RINGING);
@@ -289,7 +345,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
             Timer timerObj = new Timer();
             TimerTask timerTaskObj = new TimerTask() {
                 public void run() {
-                    Log.d(TAG,"timer to stop ringing expired");
+                    HyperLog.d(TAG,"timer to stop ringing expired");
                     stopRinging();
                 }
             };
@@ -302,7 +358,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
     @Override
     public void connectComplete(boolean reconnect, String serverURI) {
-        Log.d(TAG,"MQTT connection succeeded, reconnect="+reconnect);
+        HyperLog.d(TAG,"MQTT connection succeeded, reconnect="+reconnect);
 
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         String keyPhoneID = getString(R.string.preference_key_phone_id);
@@ -310,10 +366,10 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
             String id = preferences.getString(keyPhoneID, null);
             if(id!=null) {
                 String topic = MQTT_TOPIC_BASE+id;
-                Log.d(TAG,"subscribing for topic "+topic);
+                HyperLog.d(TAG,"subscribing for topic "+topic);
                 try {
                     mqttClient.subscribe(topic, 0, this);
-                    Log.d(TAG,"subscription of topic "+topic+ " successful.");
+                    HyperLog.d(TAG,"subscription of topic "+topic+ " successful.");
                 } catch (MqttException e) {
                     Log.e(TAG, "MQTT subscribe failed: ", e);
                 }
@@ -372,6 +428,37 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
     }
 
     /**
+     * checks if we are in our HOME WLAN network
+     * @return true if we are in the registered HOME netwrok
+     */
+    private boolean isInHomeNetwork() {
+        HyperLog.d(TAG,"isInHomeNetwork() called");
+
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        String keyWlanSSID  = getString(R.string.preference_key_wlan_ssid);
+        String wlanSSID = null;
+        if (preferences.contains(keyWlanSSID) ) {
+            wlanSSID = preferences.getString(keyWlanSSID, null);
+            HyperLog.d(TAG,"found WLAN SSID in preferences, value="+wlanSSID);
+        }
+        else {
+            HyperLog.d(TAG,"No WLAN SSID found in preferences");
+        }
+
+        WifiManager wifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        String activeSSID = wifiManager.getConnectionInfo().getSSID();
+        HyperLog.d(TAG,"active WIFI SSID="+activeSSID);
+
+        // activeSSID has SSID enclosed in quotes
+        if(wlanSSID!=null && activeSSID!=null && activeSSID.contains(wlanSSID)) {
+            HyperLog.d(TAG, "HOME WLAN detected.");
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * sends a broadcast message with status details
      */
     private synchronized void sendStatusBroadcast() {
@@ -400,15 +487,14 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
     // actions used in Intents
     static final String ACTION_STOP_RINGING         = "hagego.phonefinder.stop_ringing";   // used in notification, stops ringing
     static final String ACTION_UPDATE_STATUS        = "hagego.phonefinder.update_status";  // broadcast of status
-    static final String ACTION_CONNECT              = "hagego.phonefinder.connect";        // connected to home network
-    static final String ACTION_DISCONNECT           = "hagego.phonefinder.disconnect";     // disconnected from home network
 
     static final int    STOP_RINGING_TIMER_DEFFAULT = 60;                                 // default timeout in seconds to stop ringing
     static final int    MQTT_KEEPALIVE              = 900;                                // MQTT timeout interval
 
     static final String STATUS_MQTT_CONNECTED       = "hagego.phonefinder.mqtt_connected";
 
-    private MqttAsyncClient     mqttClient  = null;
-    private Ringtone            ringtone    = null;
-    private String              phoneId     = null;
+    private MqttAsyncClient     mqttClient        = null;
+    private Ringtone            ringtone          = null;
+    private String              phoneId           = null;
+    private int                 connectionCounter = 0;           // counts connection retries
 }

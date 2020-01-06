@@ -36,4 +36,5 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.2'
     implementation 'org.jetbrains:annotations-java5:15.0'
+    implementation 'com.hypertrack:hyperlog:0.0.10'
 }

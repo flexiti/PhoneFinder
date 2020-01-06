@@ -10,6 +10,8 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
@@ -21,6 +23,13 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
+
+import com.android.volley.VolleyError;
+import com.hypertrack.hyperlog.HLCallback;
+import com.hypertrack.hyperlog.HyperLog;
+import com.hypertrack.hyperlog.error.HLErrorResponse;
+
+import java.util.Timer;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -61,6 +70,29 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             startActivity(new Intent(this,SettingsActivity.class));
             return true;
+        }
+
+        if(id == R.id.action_push_logs) {
+            if(BuildConfig.DEBUG) {
+                Log.d(TAG, "pushing HyperLog logs to server");
+                HyperLog.setURL("https://en8gn1mwhb3rw.x.pipedream.net");
+                HyperLog.pushLogs(this, false, new HLCallback() {
+
+                    @Override
+                    public void onSuccess(@NonNull Object response) {
+                        Log.d(TAG, "HyperLog pushLogs: success");
+                    }
+
+                    @Override
+                    public void onError(@NonNull HLErrorResponse HLErrorResponse) {
+                        Log.d(TAG, "HyperLog pushLogs error: " + HLErrorResponse.getErrorMessage());
+                    }
+                });
+            }
+        }
+
+        if(id == R.id.action_delete_logs) {
+            HyperLog.deleteLogs();
         }
 
         return super.onOptionsItemSelected(item);

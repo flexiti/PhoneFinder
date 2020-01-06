@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
 
+import com.hypertrack.hyperlog.HyperLog;
+
 import org.eclipse.paho.client.mqttv3.MqttPingSender;
 import org.eclipse.paho.client.mqttv3.internal.ClientComms;
 import java.util.Calendar;
@@ -29,7 +31,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
     private PendingIntent pendingIntent;
 
     MqttAndroidPingSender(Context context) {
-        Log.d(TAG,"MqttAndroidPingSender constructor called");
+        HyperLog.d(TAG,"MqttAndroidPingSender constructor called");
 
         this.context = context;
         alarmManager = (AlarmManager) context.getSystemService(ALARM_SERVICE);
@@ -37,7 +39,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
     }
 
     public void init(ClientComms comms) {
-        Log.d(TAG,"init called");
+        HyperLog.d(TAG,"init called");
 
         if (comms == null) {
             throw new IllegalArgumentException("ClientComms cannot be null.");
@@ -46,7 +48,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
     }
 
     public void start() {
-        Log.d(TAG,"start called");
+        HyperLog.d(TAG,"start called");
 
         pendingIntent = PendingIntent.getBroadcast(context, 0,
                 new Intent(ACTION_WAKEUP_PHONE),
@@ -58,7 +60,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
             delayInMilliseconds = 60000;
         }
 
-        Log.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
+        HyperLog.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
         Calendar wakeUpTime = Calendar.getInstance();
         wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
@@ -67,10 +69,10 @@ public class MqttAndroidPingSender implements MqttPingSender {
     }
 
     public void stop() {
-        Log.d(TAG,"stop called");
+        HyperLog.d(TAG,"stop called");
 
         if(pendingIntent!=null) {
-            Log.d(TAG,"cancelling alarm");
+            HyperLog.d(TAG,"cancelling alarm");
 
             alarmManager.cancel(pendingIntent);
             pendingIntent = null;
@@ -78,7 +80,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
     }
 
     public void schedule(long delayInMilliseconds) {
-        Log.d(TAG,"schedule called, delay in seconds="+delayInMilliseconds/1000);
+        HyperLog.d(TAG,"schedule called, delay in seconds="+delayInMilliseconds/1000);
 
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0,
                 new Intent(ACTION_WAKEUP_PHONE),
@@ -88,7 +90,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
             delayInMilliseconds = 60000;
         }
 
-        Log.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
+        HyperLog.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
         Calendar wakeUpTime = Calendar.getInstance();
         wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
@@ -100,7 +102,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.d(TAG,"MqttPingWakeupReceiver triggered. Sending ping.");
+            HyperLog.d(TAG,"MqttPingWakeupReceiver triggered. Sending ping.");
             pendingIntent = null;
 
             comms.checkForActivity();
