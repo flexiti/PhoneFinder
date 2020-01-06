@@ -11,7 +11,6 @@ import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.ConnectivityManager;
-import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
@@ -35,6 +34,7 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.logging.Level;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -56,6 +56,12 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         HyperLog.d(TAG, "onCreate called");
         HyperLog.d(TAG,"build type was: "+BuildConfig.BUILD_TYPE);
+
+        // turn on logging of PAHO client library
+        if(BuildConfig.DEBUG) {
+            PahoAndroidLoggingHandler.reset(new PahoAndroidLoggingHandler());
+            java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.INFO);
+        }
 
         // callback for WIFI connect state changes
         ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -84,10 +90,6 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         NetworkRequest request = new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build();
         connectivityManager.registerNetworkCallback(request, networkCallback);
-
-        // turn on logging of PAHO client library
-        //AndroidLoggingHandler.reset(new AndroidLoggingHandler());
-        //java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.FINEST);
 
         // create an Notification channel for the mandatory foreground service notification
         NotificationChannel channelRunning = new NotificationChannel(NOTIFICATION_CHANNEL_RUNNING,

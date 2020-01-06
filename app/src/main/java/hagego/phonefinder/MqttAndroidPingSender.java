@@ -13,6 +13,8 @@ import com.hypertrack.hyperlog.HyperLog;
 import org.eclipse.paho.client.mqttv3.MqttPingSender;
 import org.eclipse.paho.client.mqttv3.internal.ClientComms;
 import java.util.Calendar;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import static android.content.Context.ALARM_SERVICE;
 
@@ -29,6 +31,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
     private Context context;
     private AlarmManager alarmManager;
     private PendingIntent pendingIntent;
+    private Timer timer;
 
     MqttAndroidPingSender(Context context) {
         HyperLog.d(TAG,"MqttAndroidPingSender constructor called");
@@ -57,47 +60,69 @@ public class MqttAndroidPingSender implements MqttPingSender {
         // schedule first ping
         int delayInMilliseconds = Math.toIntExact(comms.getKeepAlive());
         if(delayInMilliseconds<60000) {
-            delayInMilliseconds = 60000;
+            HyperLog.d(TAG, "scheduling next ping over Timer in " + delayInMilliseconds + " ms");
+            timer = new Timer("MQTT TimerPing");
+            //Check ping after first keep alive interval.
+            timer.schedule(new TimerPingTask(), comms.getKeepAlive());
         }
+        else {
+            HyperLog.d(TAG, "scheduling next ping over Calendar in " + delayInMilliseconds + " ms");
+            Calendar wakeUpTime = Calendar.getInstance();
+            wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
-        HyperLog.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
-        Calendar wakeUpTime = Calendar.getInstance();
-        wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
-
-        // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
-        alarmManager.setWindow(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds*0.4),pendingIntent);
+            // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * 0.4), pendingIntent);
+        }
     }
 
     public void stop() {
         HyperLog.d(TAG,"stop called");
 
         if(pendingIntent!=null) {
-            HyperLog.d(TAG,"cancelling alarm");
+            HyperLog.d(TAG,"cancelling calendar task");
 
             alarmManager.cancel(pendingIntent);
             pendingIntent = null;
         }
+
+        if(timer != null){
+            HyperLog.d(TAG,"cancelling Timer task");
+
+            timer.cancel();
+            timer = null;
+        }
     }
 
     public void schedule(long delayInMilliseconds) {
-        HyperLog.d(TAG,"schedule called, delay in seconds="+delayInMilliseconds/1000);
+        HyperLog.d(TAG,"schedule called, delay in ms="+delayInMilliseconds);
 
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0,
                 new Intent(ACTION_WAKEUP_PHONE),
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
-        if(delayInMilliseconds<60000) {
-            delayInMilliseconds = 60000;
+        // if the timer triggers exact or even 1 bit too early, checkForActivity will NOT send a ping but
+        // rather schedule again with a small delay of 1ms. This doesn't work well. Therefor add 1s to delay
+        delayInMilliseconds += 1000;
+
+        // in case of small delays < 10s use Java timer, else use Android Calendar
+        if(delayInMilliseconds<10000) {
+            HyperLog.d(TAG, "scheduling next ping over Timer in " + delayInMilliseconds + " ms");
+
+            timer.schedule(new TimerPingTask(), delayInMilliseconds);
         }
+        else {
+            HyperLog.d(TAG, "scheduling next ping over Calendar in " + delayInMilliseconds + " ms");
+            Calendar wakeUpTime = Calendar.getInstance();
+            wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
-        HyperLog.d(TAG, "scheduling next ping in " + delayInMilliseconds+ " ms");
-        Calendar wakeUpTime = Calendar.getInstance();
-        wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
-
-        // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
-        alarmManager.setWindow(AlarmManager.RTC_WAKEUP,wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds*0.4),pendingIntent);
+            // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * 0.4), pendingIntent);
+        }
     }
 
+    /**
+     * private class used to schedule next ping using Android Calendar
+     */
     private class MqttPingWakeupReceiver extends BroadcastReceiver {
 
         @Override
@@ -105,6 +130,18 @@ public class MqttAndroidPingSender implements MqttPingSender {
             HyperLog.d(TAG,"MqttPingWakeupReceiver triggered. Sending ping.");
             pendingIntent = null;
 
+            comms.checkForActivity();
+        }
+    }
+
+    /**
+     * private class used to schedule next ping using Java Timer
+     */
+    private class TimerPingTask extends TimerTask {
+
+        @Override
+        public void run() {
+            HyperLog.d(TAG,"TimerPingTask triggered. Sending ping.");
             comms.checkForActivity();
         }
     }
