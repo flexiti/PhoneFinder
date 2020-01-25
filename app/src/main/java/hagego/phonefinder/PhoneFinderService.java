@@ -60,7 +60,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         // turn on logging of PAHO client library
         if(BuildConfig.DEBUG) {
             PahoAndroidLoggingHandler.reset(new PahoAndroidLoggingHandler());
-            java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.INFO);
+            java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.FINE);
         }
 
         // callback for WIFI connect state changes
@@ -70,9 +70,18 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
                 HyperLog.d(TAG, "network callback: onAvailable called");
 
                 if(isInHomeNetwork()) {
-                    HyperLog.d(TAG, "home network detected, calling connect()");
+                    HyperLog.d(TAG, "home network detected, calling connect() in 10s");
                     connectionCounter = 2;
-                    connect();
+
+                    // starting connect in 10 seconds
+                    Timer timerObj = new Timer();
+                    TimerTask timerTaskObj = new TimerTask() {
+                        public void run() {
+                            HyperLog.d(TAG,"calling connect() now");
+                            connect();
+                        }
+                    };
+                    timerObj.schedule(timerTaskObj, 10000);
                 }
             }
 

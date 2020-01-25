@@ -24,8 +24,9 @@ import static android.content.Context.ALARM_SERVICE;
  */
 public class MqttAndroidPingSender implements MqttPingSender {
 
-    private static final String TAG                  = MqttAndroidPingSender.class.getSimpleName();   // logging tag
-    private static final String ACTION_WAKEUP_PHONE  = "hagego.phonefinder.wakeup_phone";             // action to wake up phone in time for MQTT ping messages
+    private static final String TAG                      = MqttAndroidPingSender.class.getSimpleName();   // logging tag
+    private static final String ACTION_WAKEUP_PHONE      = "hagego.phonefinder.wakeup_phone";             // action to wake up phone in time for MQTT ping messages
+    private static final double PING_REQUEST_WINDOW_SIZE = 0.3;                                           // relative time window size for ping request
 
     private ClientComms comms;
     private Context context;
@@ -56,10 +57,12 @@ public class MqttAndroidPingSender implements MqttPingSender {
         pendingIntent = PendingIntent.getBroadcast(context, 0,
                 new Intent(ACTION_WAKEUP_PHONE),
                 PendingIntent.FLAG_UPDATE_CURRENT);
+        timer = new Timer();
 
         // schedule first ping
         int delayInMilliseconds = Math.toIntExact(comms.getKeepAlive());
-        if(delayInMilliseconds<60000) {
+
+        if(delayInMilliseconds<10000) {
             HyperLog.d(TAG, "scheduling next ping over Timer in " + delayInMilliseconds + " ms");
             timer = new Timer("MQTT TimerPing");
             //Check ping after first keep alive interval.
@@ -71,7 +74,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
             wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
             // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * 0.4), pendingIntent);
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * PING_REQUEST_WINDOW_SIZE), pendingIntent);
         }
     }
 
@@ -100,10 +103,6 @@ public class MqttAndroidPingSender implements MqttPingSender {
                 new Intent(ACTION_WAKEUP_PHONE),
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
-        // if the timer triggers exact or even 1 bit too early, checkForActivity will NOT send a ping but
-        // rather schedule again with a small delay of 1ms. This doesn't work well. Therefor add 1s to delay
-        delayInMilliseconds += 1000;
-
         // in case of small delays < 10s use Java timer, else use Android Calendar
         if(delayInMilliseconds<10000) {
             HyperLog.d(TAG, "scheduling next ping over Timer in " + delayInMilliseconds + " ms");
@@ -116,7 +115,7 @@ public class MqttAndroidPingSender implements MqttPingSender {
             wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
             // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * 0.4), pendingIntent);
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * PING_REQUEST_WINDOW_SIZE), pendingIntent);
         }
     }
 
