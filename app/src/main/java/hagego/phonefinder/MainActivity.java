@@ -118,8 +118,11 @@ public class MainActivity extends AppCompatActivity {
                 phoneSet.add(name.getText().toString());
 
                 SharedPreferences.Editor editor = preferences.edit();
-                editor.putStringSet(PREFERENCE_ID_PHONELIST,phoneSet);
-                editor.apply();
+                editor.remove(PREFERENCE_ID_PHONELIST);
+                if( editor.commit() ) {
+                    editor.putStringSet(PREFERENCE_ID_PHONELIST, phoneSet);
+                    editor.apply();
+                }
             });
             builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int id) {
@@ -158,8 +161,11 @@ public class MainActivity extends AppCompatActivity {
                             phoneSet.remove(items[which].toString());
 
                             SharedPreferences.Editor editor = preferences.edit();
-                            editor.putStringSet(PREFERENCE_ID_PHONELIST,phoneSet);
-                            editor.apply();
+                            editor.remove(PREFERENCE_ID_PHONELIST);
+                            if(editor.commit()) {
+                                editor.putStringSet(PREFERENCE_ID_PHONELIST, phoneSet);
+                                editor.apply();
+                            }
                         }
                     });
 
