@@ -139,7 +139,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         sendStatusBroadcast();
 
-        return new Binder();
+        return binder;
     }
 
     @Override
@@ -290,13 +290,6 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         if(intent.getAction()!=null && intent.getAction().equals(ACTION_RUN)) {
             Log.i(TAG, "onStartCommand(): received RUN command");
-            /*
-            if(isInHomeNetwork()) {
-                HyperLog.d(TAG, "home network detected, calling connect()");
-                connect();
-            }
-
-             */
         }
 
         if(intent.getAction()!=null && intent.getAction().equals(ACTION_STOP_RINGING)) {
@@ -313,6 +306,33 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         return START_STICKY;
     }
+
+    /**
+     * triggers the search for a phone with the specified name
+     * @param phoneName phone to search for
+     */
+    public void triggerPhoneSearch(String phoneName) {
+        Log.d(TAG,"triggerPhoneSearch called for phone "+phoneName);
+
+        if(mqttClient==null) {
+            Log.w(TAG,"triggerPhoneSearch: MQTT client still null");
+            return;
+        }
+
+        String topic = MQTT_TOPIC_BASE+phoneName;
+
+        try {
+            mqttClient.publish(topic, MQTT_TOPIC_VALUE_TRIGGER.getBytes(), 0, false);
+            Log.d(TAG,"Successfully published MQTT topic "+topic+", data="+MQTT_TOPIC_VALUE_TRIGGER);
+        } catch (MqttException e) {
+            Log.e(TAG,"Exception during publishing of MQTT topic "+topic+", data="+MQTT_TOPIC_VALUE_TRIGGER,e);
+        }
+    }
+
+
+    /*
+     * overrides for MqttCallbackExtended and IMqttMessageListener
+     */
 
     @Override
     public void connectionLost(Throwable cause) {
@@ -480,11 +500,24 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         sendBroadcast(intent);
     }
 
+    /**
+     * Class used for the client Binder.  Because we know this service always
+     * runs in the same process as its clients, we don't need to deal with IPC.
+     */
+    class LocalBinder extends Binder {
+        PhoneFinderService getService() {
+            // Return this instance of LocalService so clients can call public methods
+            return PhoneFinderService.this;
+        }
+    }
 
     //
     // member data
     //
     private static final String TAG = PhoneFinderService.class.getSimpleName();   // logging tag
+
+    // Binder given to clients
+    private final IBinder binder = new LocalBinder();
 
     // MQTT topics
     private static final String MQTT_TOPIC_BASE          = "phonefinder/";       // base MQTT topic name, phone ID gets added

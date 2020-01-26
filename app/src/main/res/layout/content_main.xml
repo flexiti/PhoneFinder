@@ -12,9 +12,9 @@
         android:id="@+id/labelPhoneId"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="200dp"
         android:text="@string/ui_label_phone_id"
         android:textSize="18sp"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHorizontal_bias="0.26"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
@@ -46,5 +46,23 @@
         android:text=""
         app:layout_constraintBottom_toBottomOf="@+id/labelMqttServerConnection"
         app:layout_constraintStart_toEndOf="@+id/labelMqttServerConnection" />
+
+    <TextView
+        android:id="@+id/labelSearchPhone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="100dp"
+        android:text="@string/ui_label_search_phone"
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="@+id/labelMqttServerConnection"
+        app:layout_constraintTop_toBottomOf="@+id/labelMqttServerConnection" />
+
+    <Spinner
+        android:id="@+id/spinnerPhones"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        app:layout_constraintStart_toStartOf="@+id/labelSearchPhone"
+        app:layout_constraintTop_toBottomOf="@+id/labelSearchPhone" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

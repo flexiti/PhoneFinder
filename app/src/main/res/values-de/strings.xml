@@ -22,4 +22,12 @@
     <string name="preference_title_wlan_ssid">WLAN SSID</string>
     <string name="action_push_logs">push logs</string>
     <string name="action_delete_logs">logs löschen</string>
+    <string name="action_add_phone">Handy hinzufügen</string>
+    <string name="action_delete_phone">Handy löschen</string>
+    <string name="cancel">Abbruch</string>
+    <string name="dialog_add_hint">neues Handy</string>
+    <string name="dialog_add_title">Handy hinzufügen</string>
+    <string name="dialog_delete_title">Handy löschen</string>
+    <string name="ok">OK</string>
+    <string name="ui_label_search_phone">Anderes Handy suchen :</string>
 </resources>
