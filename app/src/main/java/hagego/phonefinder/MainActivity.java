@@ -118,6 +118,7 @@ public class MainActivity extends AppCompatActivity {
                 phoneSet.add(name.getText().toString());
 
                 SharedPreferences.Editor editor = preferences.edit();
+                editor.clear();
                 editor.putStringSet(PREFERENCE_ID_PHONELIST,phoneSet);
                 editor.apply();
             });

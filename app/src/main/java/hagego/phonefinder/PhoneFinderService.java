@@ -23,14 +23,17 @@ import android.util.Log;
 
 import com.hypertrack.hyperlog.HyperLog;
 
+import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
-import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.eclipse.paho.android.service.MqttAndroidClient;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -42,7 +45,7 @@ import androidx.core.app.NotificationManagerCompat;
 import static android.app.Notification.EXTRA_NOTIFICATION_ID;
 import static android.content.Intent.ACTION_RUN;
 
-public class PhoneFinderService extends Service implements MqttCallbackExtended, IMqttMessageListener {
+public class PhoneFinderService extends Service implements MqttCallback, IMqttActionListener {
     public PhoneFinderService() {
     }
 
@@ -170,7 +173,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
      * creates a new MQTT client object
      * @return new MqttAsyncClient object
      */
-    MqttAsyncClient createMqttClient() {
+    MqttAndroidClient createMqttClient() {
         HyperLog.d(TAG,"createMqttClient() called");
 
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -187,11 +190,8 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
                 String uri = "tcp://"+server;
                 String clientID = "PhoneFinder"+phoneId;
 
-                try {
-                    return new MqttAsyncClient(uri, clientID, new MemoryPersistence(),new MqttAndroidPingSender(this));
-                } catch (MqttException e) {
-                    Log.e(TAG,"Exception during creation of Mqtt client: ",e);
-                }
+                return new MqttAndroidClient(getApplicationContext(), uri, clientID, new MemoryPersistence());
+
             } else {
                 Log.w(TAG, "invalid preferences in createMqttClient(). MQTT server=" + server + " Phone ID=" + phoneId);
             }
@@ -228,7 +228,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
                     mqttClient.setCallback(this);
                     try {
-                        mqttClient.connect(connectOptions);
+                        connectToken = mqttClient.connect(connectOptions,null,this);
                         Log.d(TAG, "connection request to MQTT server was sent successfully");
 
                         Timer timerObj = new Timer();
@@ -386,7 +386,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         sendStatusBroadcast();
     }
 
-
+/*
     @Override
     public void connectComplete(boolean reconnect, String serverURI) {
         HyperLog.d(TAG,"MQTT connection succeeded, reconnect="+reconnect);
@@ -399,7 +399,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
                 String topic = MQTT_TOPIC_BASE+id;
                 HyperLog.d(TAG,"subscribing for topic "+topic);
                 try {
-                    mqttClient.subscribe(topic, 0, this);
+                    mqttClient.subscribe(topic, 0, null, this);
                     HyperLog.d(TAG,"subscription of topic "+topic+ " successful.");
                 } catch (MqttException e) {
                     Log.e(TAG, "MQTT subscribe failed: ", e);
@@ -410,8 +410,11 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         sendStatusBroadcast();
     }
 
+ */
+
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
+        Log.d(TAG,"deliveryComplete called");
     }
 
     /**
@@ -500,6 +503,41 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
         sendBroadcast(intent);
     }
 
+    @Override
+    public void onSuccess(IMqttToken iMqttToken) {
+        Log.d(TAG,"onSuccess called");
+
+        if(connectToken!=null && iMqttToken==connectToken) {
+            Log.d(TAG,"connect successful");
+            connectToken = null;
+
+            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+            String keyPhoneID = getString(R.string.preference_key_phone_id);
+            if (preferences.contains(keyPhoneID)) {
+                String id = preferences.getString(keyPhoneID, null);
+                if(id!=null) {
+                    String topic = MQTT_TOPIC_BASE+id;
+                    HyperLog.d(TAG,"subscribing for topic "+topic);
+                    try {
+                        mqttClient.subscribe(topic, 0, null, this);
+                        HyperLog.d(TAG,"subscription of topic "+topic+ " successful.");
+                    } catch (MqttException e) {
+                        Log.e(TAG, "MQTT subscribe failed: ", e);
+                    }
+                }
+            }
+
+            sendStatusBroadcast();
+        }
+
+
+    }
+
+    @Override
+    public void onFailure(IMqttToken iMqttToken, Throwable throwable) {
+        Log.d(TAG,"onFailure called, token="+iMqttToken+" throwable="+throwable);
+    }
+
     /**
      * Class used for the client Binder.  Because we know this service always
      * runs in the same process as its clients, we don't need to deal with IPC.
@@ -537,7 +575,8 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
     static final String STATUS_MQTT_CONNECTED       = "hagego.phonefinder.mqtt_connected";
 
-    private MqttAsyncClient     mqttClient        = null;
+    private MqttAndroidClient   mqttClient        = null;
+    private IMqttToken          connectToken      = null;
     private Ringtone            ringtone          = null;
     private String              phoneId           = null;
     private int                 connectionCounter = 0;           // counts connection retries
