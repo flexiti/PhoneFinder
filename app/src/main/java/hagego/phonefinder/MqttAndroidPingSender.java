@@ -25,11 +25,10 @@ public class MqttAndroidPingSender implements MqttPingSender {
 
     private static final String TAG                      = MqttAndroidPingSender.class.getSimpleName();   // logging tag
     private static final String ACTION_WAKEUP_PHONE      = "hagego.phonefinder.wakeup_phone";             // action to wake up phone in time for MQTT ping messages
-    private static final double PING_REQUEST_WINDOW_SIZE = 0.3;                                           // relative time window size for ping request
 
     private ClientComms comms;
-    private Context context;
-    private AlarmManager alarmManager;
+    private final Context context;
+    private final AlarmManager alarmManager;
     private PendingIntent pendingIntent;
     private Timer timer;
 
@@ -68,12 +67,13 @@ public class MqttAndroidPingSender implements MqttPingSender {
             timer.schedule(new TimerPingTask(), comms.getKeepAlive());
         }
         else {
-            HyperLog.d(TAG, "scheduling next ping over Calendar in " + delayInMilliseconds + " ms");
+            HyperLog.d(TAG, "scheduling next ping over Calendar in " + delayInMilliseconds/1000 + " seconds");
             Calendar wakeUpTime = Calendar.getInstance();
             wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
             // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * PING_REQUEST_WINDOW_SIZE), pendingIntent);
+            //alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * PING_REQUEST_WINDOW_SIZE), pendingIntent);
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), pendingIntent);
         }
     }
 
@@ -98,23 +98,27 @@ public class MqttAndroidPingSender implements MqttPingSender {
     public void schedule(long delayInMilliseconds) {
         HyperLog.d(TAG,"schedule called, delay in ms="+delayInMilliseconds);
 
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0,
-                new Intent(ACTION_WAKEUP_PHONE),
-                PendingIntent.FLAG_UPDATE_CURRENT);
-
         // in case of small delays < 10s use Java timer, else use Android Calendar
         if(delayInMilliseconds<10000) {
             HyperLog.d(TAG, "scheduling next ping over Timer in " + delayInMilliseconds + " ms");
 
+            timer = new Timer("MQTT TimerPing");
             timer.schedule(new TimerPingTask(), delayInMilliseconds);
+            pendingIntent = null;
         }
         else {
-            HyperLog.d(TAG, "scheduling next ping over Calendar in " + delayInMilliseconds + " ms");
+            HyperLog.d(TAG, "scheduling next ping over Calendar in " + delayInMilliseconds/1000 + " seconds");
             Calendar wakeUpTime = Calendar.getInstance();
             wakeUpTime.add(Calendar.MILLISECOND, Math.toIntExact(delayInMilliseconds));
 
+            timer = null;
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0,
+                    new Intent(ACTION_WAKEUP_PHONE),
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+
             // schedule next pin in a window that allows a max. of 40% extra time, based on MQTT standard/recommendation
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * PING_REQUEST_WINDOW_SIZE), pendingIntent);
+            //alarmManager.setWindow(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), (long) (delayInMilliseconds * PING_REQUEST_WINDOW_SIZE), pendingIntent);
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeUpTime.getTimeInMillis(), pendingIntent);
         }
     }
 
@@ -140,6 +144,8 @@ public class MqttAndroidPingSender implements MqttPingSender {
         @Override
         public void run() {
             HyperLog.d(TAG,"TimerPingTask triggered. Sending ping.");
+            timer = null;
+
             comms.checkForActivity();
         }
     }

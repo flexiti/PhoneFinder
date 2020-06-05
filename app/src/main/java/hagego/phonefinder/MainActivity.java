@@ -124,10 +124,8 @@ public class MainActivity extends AppCompatActivity {
                     editor.apply();
                 }
             });
-            builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int id) {
-                    // User cancelled the dialog - nothing to do
-                }
+            builder.setNegativeButton(R.string.cancel, (dialog, id12) -> {
+                // User cancelled the dialog - nothing to do
             });
 
             AlertDialog dialog = builder.create();
@@ -169,10 +167,8 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
 
-            builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int id) {
-                    // User cancelled the dialog - nothing to do
-                }
+            builder.setNegativeButton(R.string.cancel, (dialog, id13) -> {
+                // User cancelled the dialog - nothing to do
             });
 
             AlertDialog dialog = builder.create();

@@ -533,7 +533,7 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
     static final String ACTION_UPDATE_STATUS        = "hagego.phonefinder.update_status";  // broadcast of status
 
     static final int    STOP_RINGING_TIMER_DEFFAULT = 60;                                 // default timeout in seconds to stop ringing
-    static final int    MQTT_KEEPALIVE              = 900;                                // MQTT timeout interval
+    static final int    MQTT_KEEPALIVE              = 1800;                               // MQTT timeout interval
 
     static final String STATUS_MQTT_CONNECTED       = "hagego.phonefinder.mqtt_connected";
 
