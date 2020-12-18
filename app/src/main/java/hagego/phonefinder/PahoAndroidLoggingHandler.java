@@ -12,7 +12,7 @@ import java.util.logging.*;
 public class PahoAndroidLoggingHandler extends Handler {
 
     public static void reset(Handler rootHandler) {
-        Logger rootLogger = LogManager.getLogManager().getLogger("");
+        Logger rootLogger = LogManager.getLogManager().getLogger("global");
         Handler[] handlers = rootLogger.getHandlers();
         for (Handler handler : handlers) {
             rootLogger.removeHandler(handler);
@@ -60,9 +60,9 @@ public class PahoAndroidLoggingHandler extends Handler {
             else {
                 String s = record.getMessage();
                 // dirty hack: filter out this message, else we get flooded
-                if(s.contains("network read message")) {
-                    return;
-                }
+//                if(s.contains("network read message")) {
+//                    return;
+//                }
                 HyperLog.d(tag, record.getMessage());
                 if (record.getThrown() != null) {
                     HyperLog.d(tag, Log.getStackTraceString(record.getThrown()));

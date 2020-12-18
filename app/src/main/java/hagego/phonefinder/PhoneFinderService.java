@@ -59,6 +59,8 @@ public class PhoneFinderService extends Service implements MqttCallbackExtended,
 
         // turn on logging of PAHO client library
         if(BuildConfig.DEBUG) {
+            HyperLog.d(TAG, "enabling paho client logging");
+
             PahoAndroidLoggingHandler.reset(new PahoAndroidLoggingHandler());
             java.util.logging.Logger.getLogger("org.eclipse.paho.client.mqttv3").setLevel(Level.FINE);
         }
